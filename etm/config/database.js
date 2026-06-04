@@ -43,13 +43,24 @@ const COLLECTIONS = {
 let templogClient = null;
 let templogDb = null;
 
+function shouldRequireDatabaseConnections() {
+  return process.env.REQUIRE_DATABASES === 'true'
+    || process.env.NODE_ENV === 'production'
+    || !!process.env.RAILWAY_ENVIRONMENT
+    || !!process.env.RAILWAY_SERVICE_NAME;
+}
+
 async function connectDatabases() {
+  const requireConnections = shouldRequireDatabaseConnections();
+  const missing = [];
+
   if (env.ETM_MONGODB_URI) {
     await mongoose.connect(env.ETM_MONGODB_URI, {
       dbName: env.ETM_DB_NAME
     });
     console.log(`[ETM] ETM MongoDB connected: ${env.ETM_DB_NAME}`);
   } else {
+    missing.push('ETM_MONGODB_URI or MASTERAPP_CORE_MONGODB_URI or MONGODB_URI');
     console.warn('[ETM] ETM MongoDB URI not set; ETM DB connection skipped.');
   }
 
@@ -58,7 +69,12 @@ async function connectDatabases() {
     templogDb = templogClient.db(env.TEMPLOG_DB_NAME);
     console.log(`[ETM] TempLog MongoDB connected: ${env.TEMPLOG_DB_NAME}`);
   } else {
+    missing.push('MASTERAPP_TEMPLOG_MONGODB_URI or TEMPLOG_MONGODB_URI or MONGODB_URI');
     console.warn('[ETM] TempLog MongoDB URI not set; templog DB connection skipped.');
+  }
+
+  if (requireConnections && missing.length) {
+    throw new Error(`Missing required database configuration: ${missing.join('; ')}. Add these in Railway Variables; .env files are not deployed.`);
   }
 }
 

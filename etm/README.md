@@ -30,6 +30,21 @@ http://localhost:3000/etm
    - `MASTERAPP_TEMPLOG_DB_NAME`
 4. Add secrets only through Railway Variables. Do not commit real keys.
 
+Required database variables for deployment:
+
+```txt
+ETM_MONGODB_URI=<MongoDB Atlas URI for the new ETM database>
+ETM_DB_NAME=equipment_temperature_monitor
+MASTERAPP_TEMPLOG_MONGODB_URI=<MongoDB Atlas URI that contains templog_lora_* collections>
+MASTERAPP_TEMPLOG_DB_NAME=kitchenlog
+```
+
+If `ETM_MONGODB_URI` is not set, ETM falls back to `MASTERAPP_CORE_MONGODB_URI` or `MONGODB_URI`. If `MASTERAPP_TEMPLOG_MONGODB_URI` is not set, TempLog falls back to `TEMPLOG_MONGODB_URI` or `MONGODB_URI`.
+
+Railway does not deploy local `.env` files. Copy the values into Railway Variables. In Railway, `PORT` is normally assigned by Railway; do not set it manually to `LORA_TCP_PORT`.
+
+The `npm warn config production Use --omit=dev instead` line is an npm warning from the hosting environment and is not the database failure.
+
 ## Routes
 
 - Static frontend: `/etm`

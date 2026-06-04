@@ -79,5 +79,9 @@ module.exports = {
   GATEWAY_API_KEY: process.env.GATEWAY_API_KEY || '',
   LORA_HTTP_TOKEN: process.env.LORA_HTTP_TOKEN || '',
   LORA_TCP_PORT: Number(process.env.LORA_TCP_PORT || 4001),
+  LORA_TCP_PROXY_HOST: process.env.LORA_TCP_PROXY_HOST || '',
+  LORA_TCP_PROXY_PORT: Number(process.env.LORA_TCP_PROXY_PORT || 0),
+  RAILWAY_TCP_PROXY_DOMAIN: process.env.RAILWAY_TCP_PROXY_DOMAIN || '',
+  RAILWAY_TCP_PROXY_PORT: Number(process.env.RAILWAY_TCP_PROXY_PORT || 0),
   TEMP_MON_REPORT_TZ: process.env.TEMP_MON_REPORT_TZ || process.env.TZ || 'Asia/Singapore'
 };

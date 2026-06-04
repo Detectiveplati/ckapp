@@ -206,13 +206,141 @@ document.getElementById('pageRoot').innerHTML = `
 
   <section class="panel" id="tab-thresholds" hidden><h1>Threshold Settings</h1><div class="placeholder">TODO: Threshold Settings</div></section>
   <section class="panel" id="tab-probes" hidden><h1>Temperature Probe Setup</h1><div class="placeholder">TODO: Link equipment to probes</div></section>
-  <section class="panel" id="tab-gateway" hidden><h1>IoT Gateway Setup</h1><div class="placeholder">TODO: Gateway setup</div></section>
+  <section id="tab-gateway" hidden>
+    <div class="page-head">
+      <div>
+        <h1>IoT Gateway Setup</h1>
+        <p class="muted">Configure LoRa/TZONE gateway connection settings, test incoming data, and troubleshoot gateway events.</p>
+      </div>
+    </div>
+
+    <div id="gatewayNotice" hidden></div>
+
+    <div class="grid two">
+      <section class="panel">
+        <h2>Gateway Connection</h2>
+        <div class="kv-grid" id="gatewayConfigGrid"></div>
+        <div class="button-row">
+          <button class="btn primary" type="button" id="refreshGatewayConfigBtn">Refresh Config</button>
+          <button class="btn" type="button" data-copy="tcpHost">Copy TCP Host</button>
+          <button class="btn" type="button" data-copy="tcpPort">Copy TCP Port</button>
+          <button class="btn" type="button" data-copy="httpReceiveUrl">Copy HTTP Receive URL</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Gateway Instructions</h2>
+        <ol class="instructions">
+          <li>Open gateway configuration tool.</li>
+          <li>Set Data Transfer Protocol to TCP/IP.</li>
+          <li>Enter TCP Host and TCP Port shown here.</li>
+          <li>Save and restart gateway.</li>
+          <li>Confirm new events appear in Gateway Events.</li>
+        </ol>
+        <p class="muted">For HTTP testing, POST JSON payload to <code>/api/etm/gateway/receive</code>. Include <code>X-Lora-Token</code> if configured.</p>
+      </section>
+    </div>
+
+    <div class="grid two">
+      <section class="panel">
+        <h2>Test HTTP Receive</h2>
+        <form id="gatewayTestForm" novalidate>
+          <div class="form-grid">
+            <div class="form-field">
+              <label for="gwGatewayId">Gateway ID</label>
+              <input id="gwGatewayId" value="GW-TEST">
+            </div>
+            <div class="form-field">
+              <label for="gwSensorId">Sensor ID</label>
+              <input id="gwSensorId" value="82242245">
+            </div>
+            <div class="form-field">
+              <label for="gwTemp">Temperature</label>
+              <input id="gwTemp" type="number" step="0.1" value="3.4">
+            </div>
+            <div class="form-field">
+              <label for="gwHumidity">Humidity</label>
+              <input id="gwHumidity" type="number" step="0.1" value="71">
+            </div>
+            <div class="form-field">
+              <label for="gwRssi">RSSI</label>
+              <input id="gwRssi" type="number" step="1" value="-65">
+            </div>
+            <div class="form-field">
+              <label for="gwBattery">Battery</label>
+              <input id="gwBattery" type="number" step="0.1" value="3.6">
+            </div>
+            <div class="form-field">
+              <label for="gwRecordedAt">Recorded At</label>
+              <input id="gwRecordedAt" placeholder="260604080000">
+            </div>
+            <div class="form-field">
+              <label for="gwToken">HTTP Token</label>
+              <input id="gwToken" type="password" autocomplete="off">
+            </div>
+          </div>
+          <div class="button-row">
+            <button class="btn primary" type="submit">Send Test Payload</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Gateway Status</h2>
+        <div class="kv-grid" id="gatewayStatusGrid"></div>
+        <div class="button-row">
+          <button class="btn" type="button" id="refreshGatewayStatusBtn">Refresh Status</button>
+          <a class="btn" href="/etm/gateway-log.html">Open Gateway Log</a>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <div class="table-tools">
+        <div>
+          <h2>Discovered Sensors</h2>
+          <p class="muted">Sensors seen in gateway events but not registered in the device registry.</p>
+        </div>
+        <button class="btn" type="button" id="refreshDiscoveredBtn">Refresh Discovered</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Sensor ID</th><th>Model</th><th>Last Temperature</th><th>Last Seen</th><th>Gateway ID</th><th>Action</th></tr>
+          </thead>
+          <tbody id="discoveredRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="table-tools">
+        <div>
+          <h2>Recent Gateway Events</h2>
+          <p class="muted">Latest HTTP gateway payloads stored in TempLog.</p>
+        </div>
+        <button class="btn" type="button" id="refreshGatewayEventsBtn">Refresh Events</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Received At</th><th>Gateway ID</th><th>Sensor Count</th><th>Forwarded Count</th><th>Unmatched Count</th><th>Raw Preview</th><th>Expand</th></tr>
+          </thead>
+          <tbody id="gatewayEventRows"></tbody>
+        </table>
+      </div>
+      <pre class="raw-json" id="gatewayRawViewer">Select an event to view raw JSON.</pre>
+    </section>
+  </section>
   <section class="panel" id="tab-notifications" hidden><h1>Notification Settings</h1><div class="placeholder">TODO: Notification settings</div></section>
 `;
 
 const form = document.getElementById('equipmentForm');
 const notice = document.getElementById('notice');
 const locationFilter = document.getElementById('locationFilter');
+let gatewayInitialized = false;
+let gatewayConfig = null;
+let gatewayEvents = [];
 
 function tableHeader() {
   return `
@@ -487,6 +615,7 @@ document.querySelectorAll('.tab-btn').forEach((button) => {
     ['equipment', 'thresholds', 'probes', 'gateway', 'notifications'].forEach((name) => {
       document.getElementById('tab-' + name).hidden = name !== button.dataset.tab;
     });
+    if (button.dataset.tab === 'gateway') initGatewayTab();
   });
 });
 
@@ -527,9 +656,195 @@ document.getElementById('tab-equipment').addEventListener('click', (event) => {
   if (button.dataset.action === 'reactivate') reactivateUnit(button.dataset.id);
 });
 
+function showGatewayNotice(message, type) {
+  const el = document.getElementById('gatewayNotice');
+  el.hidden = false;
+  el.className = `notice ${type}`;
+  el.textContent = message;
+}
+
+function clearGatewayNotice() {
+  const el = document.getElementById('gatewayNotice');
+  el.hidden = true;
+  el.textContent = '';
+}
+
+function fmtDate(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
+}
+
+function renderGatewayConfig(data) {
+  gatewayConfig = data;
+  document.getElementById('gatewayConfigGrid').innerHTML = [
+    ['TCP Host', data.tcpHost],
+    ['TCP Port', data.tcpPort],
+    ['HTTP Receive URL', data.httpReceiveUrl],
+    ['HTTP Token Required', data.tokenRequired ? 'Yes' : 'No'],
+    ['Last Refreshed', fmtDate(data.lastRefreshedAt)]
+  ].map(([label, value]) => `<div class="kv"><span>${label}</span><code>${escapeHtml(value)}</code></div>`).join('');
+}
+
+function renderGatewayStatus(data) {
+  document.getElementById('gatewayStatusGrid').innerHTML = [
+    ['Registered sensors', data.registeredCount],
+    ['Enabled sensors', data.enabledCount],
+    ['Recently seen sensors', data.recentlySeenCount],
+    ['Unregistered sensors detected', data.unregisteredCount],
+    ['Latest event time', fmtDate(data.latestEventAt)]
+  ].map(([label, value]) => `<div class="kv"><span>${label}</span><strong>${escapeHtml(value)}</strong></div>`).join('');
+}
+
+function renderDiscovered(sensors) {
+  const tbody = document.getElementById('discoveredRows');
+  if (!sensors.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="muted">No unregistered sensors found.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sensors.map((sensor) => `
+    <tr>
+      <td><code>${escapeHtml(sensor.sensorId)}</code></td>
+      <td>${escapeHtml(sensor.model || '-')}</td>
+      <td>${formatNumber(sensor.lastTemperature)} C</td>
+      <td>${fmtDate(sensor.lastSeen)}</td>
+      <td>${escapeHtml(sensor.gatewayId || '-')}</td>
+      <td><button class="btn" type="button" disabled>Register Later</button></td>
+    </tr>
+  `).join('');
+}
+
+function rawPreview(event) {
+  const raw = JSON.stringify(event.rawPayload || event.rows || {});
+  return raw.length > 80 ? `${raw.slice(0, 80)}...` : raw;
+}
+
+function renderGatewayEvents(events) {
+  gatewayEvents = events;
+  const tbody = document.getElementById('gatewayEventRows');
+  if (!events.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="muted">No gateway events found.</td></tr>';
+    document.getElementById('gatewayRawViewer').textContent = 'No gateway events found.';
+    return;
+  }
+  tbody.innerHTML = events.map((event, index) => `
+    <tr>
+      <td>${fmtDate(event.receivedAt)}</td>
+      <td>${escapeHtml(event.gatewayId || '-')}</td>
+      <td>${formatNumber(event.sensorCount)}</td>
+      <td>${formatNumber(event.matchedCount)}</td>
+      <td>${formatNumber(event.unmatchedCount)}</td>
+      <td><code>${escapeHtml(rawPreview(event))}</code></td>
+      <td><button class="btn" type="button" data-gateway-event-index="${index}">Expand</button></td>
+    </tr>
+  `).join('');
+}
+
+async function loadGatewayConfig() {
+  const data = await api('/gateway/tcp-config');
+  renderGatewayConfig(data);
+}
+
+async function loadGatewayStatus() {
+  const data = await api('/gateway/status');
+  renderGatewayStatus(data);
+}
+
+async function loadDiscoveredSensors() {
+  const data = await api('/gateway/discover?hours=24');
+  renderDiscovered(data.sensors || []);
+}
+
+async function loadGatewayEvents() {
+  const data = await api('/gateway/events?limit=50');
+  renderGatewayEvents(data || []);
+}
+
+async function refreshGatewayAll() {
+  clearGatewayNotice();
+  try {
+    await Promise.all([
+      loadGatewayConfig(),
+      loadGatewayStatus(),
+      loadDiscoveredSensors(),
+      loadGatewayEvents()
+    ]);
+  } catch (err) {
+    showGatewayNotice(err.message, 'error');
+  }
+}
+
+function initGatewayTab() {
+  if (gatewayInitialized) return;
+  gatewayInitialized = true;
+  document.getElementById('refreshGatewayConfigBtn').addEventListener('click', () => loadGatewayConfig().catch((err) => showGatewayNotice(err.message, 'error')));
+  document.getElementById('refreshGatewayStatusBtn').addEventListener('click', () => loadGatewayStatus().catch((err) => showGatewayNotice(err.message, 'error')));
+  document.getElementById('refreshDiscoveredBtn').addEventListener('click', () => loadDiscoveredSensors().catch((err) => showGatewayNotice(err.message, 'error')));
+  document.getElementById('refreshGatewayEventsBtn').addEventListener('click', () => loadGatewayEvents().catch((err) => showGatewayNotice(err.message, 'error')));
+
+  document.querySelectorAll('#tab-gateway [data-copy]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const value = gatewayConfig ? gatewayConfig[button.dataset.copy] : '';
+      if (!value) return;
+      await navigator.clipboard.writeText(String(value));
+      showGatewayNotice('Copied to clipboard.', 'ok');
+    });
+  });
+
+  document.getElementById('gatewayTestForm').addEventListener('submit', sendGatewayTestPayload);
+  document.getElementById('gatewayEventRows').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-gateway-event-index]');
+    if (!button) return;
+    const selected = gatewayEvents[Number(button.dataset.gatewayEventIndex)];
+    document.getElementById('gatewayRawViewer').textContent = JSON.stringify(selected, null, 2);
+  });
+
+  refreshGatewayAll();
+}
+
+async function sendGatewayTestPayload(event) {
+  event.preventDefault();
+  clearGatewayNotice();
+  const payload = {
+    gatewayId: document.getElementById('gwGatewayId').value.trim() || 'GW-TEST',
+    data: {
+      tag08b: [{
+        id: document.getElementById('gwSensorId').value.trim(),
+        temp: numberValue('gwTemp'),
+        humi: numberValue('gwHumidity'),
+        rssi: numberValue('gwRssi'),
+        bat: numberValue('gwBattery'),
+        rtc: document.getElementById('gwRecordedAt').value.trim()
+      }]
+    }
+  };
+  const token = document.getElementById('gwToken').value.trim();
+  try {
+    const response = await fetch('/api/etm/gateway/receive', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'X-Lora-Token': token } : {})
+      },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!response.ok || result.ok === false) throw new Error(result.error || 'Gateway receive failed');
+    showGatewayNotice(`Gateway payload stored. Event ID: ${result.data.eventId}`, 'ok');
+    await Promise.all([loadGatewayStatus(), loadDiscoveredSensors(), loadGatewayEvents()]);
+  } catch (err) {
+    showGatewayNotice(err.message, 'error');
+  }
+}
+
 // TODO: Link equipment to probes.
 // TODO: Show latest reading.
 // TODO: Show open alerts.
 // TODO: Add audit log.
+// TODO: Forward matched sensor readings into core_tempmon_readings.
+// TODO: Implement full TCP listener.
+// TODO: Implement sensor registration from discovered sensors.
+// TODO: Implement gateway health checks.
 
 loadUnits();

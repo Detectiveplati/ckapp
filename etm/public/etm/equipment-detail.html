@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ETM Equipment Detail</title>
+  <link rel="stylesheet" href="/etm/assets/etm.css">
+</head>
+<body>
+  <script src="/etm/assets/api.js"></script>
+  <script src="/etm/assets/etm.js"></script>
+  <script>
+    renderEtmShell('Equipment');
+    const params = new URLSearchParams(window.location.search);
+    document.getElementById('pageRoot').innerHTML = `
+      <section class="panel">
+        <h1>Equipment Detail</h1>
+        <p class="muted">TODO: Show readings chart, device status, alerts, and monthly report actions for unit ${params.get('id') || '(not selected)'}.</p>
+        <div class="placeholder">Equipment detail placeholder</div>
+      </section>
+    `;
+  </script>
+</body>
+</html>

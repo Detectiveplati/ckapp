@@ -3,6 +3,7 @@
 const express = require('express');
 const {
   getTcpConfig,
+  updateTcpConfig,
   receiveHttpPayload,
   listGatewayEvents,
   getGatewayStatus,
@@ -80,8 +81,22 @@ router.get('/tcp-log', (_req, res) => {
   res.json({ ok: true, data: getTcpLog() });
 });
 
-router.get('/tcp-config', (req, res) => {
-  res.json({ ok: true, data: getTcpConfig(req) });
+router.get('/tcp-config', async (req, res) => {
+  try {
+    const config = await getTcpConfig(req);
+    res.json({ ok: true, data: config });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+router.put('/tcp-config', async (req, res) => {
+  try {
+    const config = await updateTcpConfig(req, req.body || {});
+    res.json({ ok: true, data: config });
+  } catch (err) {
+    sendError(res, err);
+  }
 });
 
 module.exports = router;

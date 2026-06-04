@@ -220,6 +220,26 @@ document.getElementById('pageRoot').innerHTML = `
       <section class="panel">
         <h2>Gateway Connection</h2>
         <div class="kv-grid" id="gatewayConfigGrid"></div>
+        <form id="gatewayConfigForm" class="settings-form" novalidate>
+          <div class="form-grid">
+            <div class="form-field">
+              <label for="gwTcpHostOverride">TCP Host Override</label>
+              <input id="gwTcpHostOverride" placeholder="Use env/Railway host">
+            </div>
+            <div class="form-field">
+              <label for="gwTcpPortOverride">TCP Port Override</label>
+              <input id="gwTcpPortOverride" type="number" min="1" max="65535" placeholder="Use env/Railway port">
+            </div>
+            <div class="form-field full">
+              <label for="gwConfigNotes">Notes</label>
+              <textarea id="gwConfigNotes" rows="2" placeholder="Optional gateway setup notes"></textarea>
+            </div>
+          </div>
+          <div class="button-row">
+            <button class="btn primary" type="submit">Save Gateway Settings</button>
+            <button class="btn" type="button" id="resetGatewayConfigBtn">Use Env Defaults</button>
+          </div>
+        </form>
         <div class="button-row">
           <button class="btn primary" type="button" id="refreshGatewayConfigBtn">Refresh Config</button>
           <button class="btn" type="button" data-copy="tcpHost">Copy TCP Host</button>
@@ -680,10 +700,17 @@ function renderGatewayConfig(data) {
   document.getElementById('gatewayConfigGrid').innerHTML = [
     ['TCP Host', data.tcpHost],
     ['TCP Port', data.tcpPort],
+    ['Config Source', data.via || 'direct'],
     ['HTTP Receive URL', data.httpReceiveUrl],
     ['HTTP Token Required', data.tokenRequired ? 'Yes' : 'No'],
+    ['Env Proxy Set', data.defaults?.envProxyHostConfigured ? 'Yes' : 'No'],
+    ['Railway Proxy Set', data.defaults?.railwayProxyHostConfigured ? 'Yes' : 'No'],
     ['Last Refreshed', fmtDate(data.lastRefreshedAt)]
   ].map(([label, value]) => `<div class="kv"><span>${label}</span><code>${escapeHtml(value)}</code></div>`).join('');
+
+  document.getElementById('gwTcpHostOverride').value = data.editable?.tcpHostOverride || '';
+  document.getElementById('gwTcpPortOverride').value = data.editable?.tcpPortOverride || '';
+  document.getElementById('gwConfigNotes').value = data.editable?.notes || '';
 }
 
 function renderGatewayStatus(data) {
@@ -745,6 +772,52 @@ async function loadGatewayConfig() {
   renderGatewayConfig(data);
 }
 
+async function saveGatewayConfig(event) {
+  event.preventDefault();
+  clearGatewayNotice();
+  const tcpPortOverride = document.getElementById('gwTcpPortOverride').value.trim();
+  if (tcpPortOverride) {
+    const port = Number(tcpPortOverride);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      showGatewayNotice('TCP port override must be a number from 1 to 65535.', 'error');
+      return;
+    }
+  }
+
+  try {
+    const data = await api('/gateway/tcp-config', {
+      method: 'PUT',
+      body: JSON.stringify({
+        tcpHostOverride: document.getElementById('gwTcpHostOverride').value.trim(),
+        tcpPortOverride,
+        notes: document.getElementById('gwConfigNotes').value.trim()
+      })
+    });
+    renderGatewayConfig(data);
+    showGatewayNotice('Gateway settings saved.', 'ok');
+  } catch (err) {
+    showGatewayNotice(err.message, 'error');
+  }
+}
+
+async function resetGatewayConfig() {
+  clearGatewayNotice();
+  try {
+    const data = await api('/gateway/tcp-config', {
+      method: 'PUT',
+      body: JSON.stringify({
+        tcpHostOverride: '',
+        tcpPortOverride: '',
+        notes: ''
+      })
+    });
+    renderGatewayConfig(data);
+    showGatewayNotice('Gateway settings reset to environment defaults.', 'ok');
+  } catch (err) {
+    showGatewayNotice(err.message, 'error');
+  }
+}
+
 async function loadGatewayStatus() {
   const data = await api('/gateway/status');
   renderGatewayStatus(data);
@@ -781,6 +854,8 @@ function initGatewayTab() {
   document.getElementById('refreshGatewayStatusBtn').addEventListener('click', () => loadGatewayStatus().catch((err) => showGatewayNotice(err.message, 'error')));
   document.getElementById('refreshDiscoveredBtn').addEventListener('click', () => loadDiscoveredSensors().catch((err) => showGatewayNotice(err.message, 'error')));
   document.getElementById('refreshGatewayEventsBtn').addEventListener('click', () => loadGatewayEvents().catch((err) => showGatewayNotice(err.message, 'error')));
+  document.getElementById('gatewayConfigForm').addEventListener('submit', saveGatewayConfig);
+  document.getElementById('resetGatewayConfigBtn').addEventListener('click', resetGatewayConfig);
 
   document.querySelectorAll('#tab-gateway [data-copy]').forEach((button) => {
     button.addEventListener('click', async () => {

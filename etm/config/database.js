@@ -13,6 +13,7 @@ const COLLECTIONS = {
     CORRECTIVE_ACTIONS: 'etm_corrective_actions',
     CALIBRATIONS: 'etm_calibrations',
     CONFIGS: 'etm_configs',
+    GATEWAY_CONFIGS: 'etm_gateway_configs',
     FOOD_SAFETY_MONTHLY_REPORTS: 'etm_food_safety_monthly_reports',
     PUSH_SUBSCRIPTIONS: 'etm_push_subscriptions',
     USERS: 'etm_users'

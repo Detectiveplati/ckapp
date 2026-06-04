@@ -1,17 +1,29 @@
 'use strict';
 
 const { ObjectId } = require('mongodb');
+const mongoose = require('mongoose');
 const env = require('../config/env');
 const { COLLECTIONS, getTemplogDb } = require('../config/database');
 const { normalizeSensorId, parseLoraPayload } = require('./loraParser.service');
 
 const HTTP_RECEIVE_PATH = '/api/etm/gateway/receive';
 const TCP_LOG = [];
+const GATEWAY_CONFIG_KEY = 'global';
 
 function requireTemplogDb() {
   const db = getTemplogDb();
   if (!db) {
     const err = new Error('TempLog database is not connected');
+    err.status = 503;
+    throw err;
+  }
+  return db;
+}
+
+function requireEtmDb() {
+  const db = mongoose.connection?.db;
+  if (!db) {
+    const err = new Error('ETM database is not connected');
     err.status = 503;
     throw err;
   }
@@ -28,23 +40,98 @@ function getRequestProtocol(req) {
   return forwardedProto || req.protocol || 'http';
 }
 
-function getTcpConfig(req) {
-  const tcpHost = env.LORA_TCP_PROXY_HOST
-    || env.RAILWAY_TCP_PROXY_DOMAIN
-    || getRequestHost(req).split(':')[0];
-  const tcpPort = env.LORA_TCP_PROXY_PORT
-    || env.RAILWAY_TCP_PROXY_PORT
-    || env.LORA_TCP_PORT
+function parsePort(value) {
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return null;
+  return port;
+}
+
+function cleanHost(value) {
+  return String(value || '').trim();
+}
+
+async function getGatewayConfigOverride() {
+  const db = requireEtmDb();
+  const config = await db.collection(COLLECTIONS.etm.GATEWAY_CONFIGS).findOne({ key: GATEWAY_CONFIG_KEY });
+  return config || {};
+}
+
+function resolveTcpConfig(req, override = {}) {
+  const overrideHost = cleanHost(override.tcpHostOverride);
+  const overridePort = parsePort(override.tcpPortOverride);
+  const envProxyHost = cleanHost(env.LORA_TCP_PROXY_HOST);
+  const railwayProxyHost = cleanHost(env.RAILWAY_TCP_PROXY_DOMAIN);
+  const requestHost = getRequestHost(req).split(':')[0];
+  const tcpHost = overrideHost || envProxyHost || railwayProxyHost || requestHost;
+  const tcpPort = overridePort
+    || parsePort(env.LORA_TCP_PROXY_PORT)
+    || parsePort(env.RAILWAY_TCP_PROXY_PORT)
+    || parsePort(env.LORA_TCP_PORT)
     || 4001;
+  const via = overrideHost || overridePort
+    ? 'etm-db-override'
+    : envProxyHost || env.LORA_TCP_PROXY_PORT
+      ? 'env-proxy'
+      : railwayProxyHost || env.RAILWAY_TCP_PROXY_PORT
+        ? 'railway-proxy'
+        : 'direct';
   const origin = `${getRequestProtocol(req)}://${getRequestHost(req)}`;
 
   return {
     tcpHost,
     tcpPort,
+    via,
     httpReceiveUrl: `${origin}${HTTP_RECEIVE_PATH}`,
     tokenRequired: !!env.LORA_HTTP_TOKEN,
+    editable: {
+      tcpHostOverride: overrideHost,
+      tcpPortOverride: overridePort || '',
+      notes: String(override.notes || '')
+    },
+    defaults: {
+      envProxyHostConfigured: !!envProxyHost,
+      railwayProxyHostConfigured: !!railwayProxyHost,
+      internalTcpPort: parsePort(env.LORA_TCP_PORT) || 4001
+    },
     lastRefreshedAt: new Date().toISOString()
   };
+}
+
+async function getTcpConfig(req) {
+  const override = await getGatewayConfigOverride();
+  return resolveTcpConfig(req, override);
+}
+
+async function updateTcpConfig(req, body) {
+  const tcpHostOverride = cleanHost(body.tcpHostOverride);
+  const rawPort = body.tcpPortOverride === '' || body.tcpPortOverride === null || body.tcpPortOverride === undefined
+    ? ''
+    : body.tcpPortOverride;
+  const tcpPortOverride = rawPort === '' ? '' : parsePort(rawPort);
+  if (rawPort !== '' && !tcpPortOverride) {
+    const err = new Error('TCP port override must be a number from 1 to 65535');
+    err.status = 400;
+    throw err;
+  }
+
+  const notes = String(body.notes || '').trim();
+  const now = new Date();
+  const update = {
+    key: GATEWAY_CONFIG_KEY,
+    tcpHostOverride,
+    tcpPortOverride,
+    notes,
+    updatedAt: now
+  };
+
+  const db = requireEtmDb();
+  await db.collection(COLLECTIONS.etm.GATEWAY_CONFIGS).updateOne(
+    { key: GATEWAY_CONFIG_KEY },
+    { $set: update, $setOnInsert: { createdAt: now } },
+    { upsert: true }
+  );
+
+  return getTcpConfig(req);
 }
 
 function tokenMatches(req) {
@@ -226,6 +313,7 @@ async function findEvent(id) {
 
 module.exports = {
   getTcpConfig,
+  updateTcpConfig,
   receiveHttpPayload,
   listGatewayEvents,
   getGatewayStatus,

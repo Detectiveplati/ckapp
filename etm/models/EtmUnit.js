@@ -29,7 +29,15 @@ const schema = new mongoose.Schema({
   warmerState: {
     state: { type: String, enum: ['off', 'warming_up', 'active', 'cooling', 'fault', 'unknown'], default: 'unknown' },
     since: { type: Date }
+  },
+  legacyTempmonUnitId: { type: String, default: '', index: true },
+  source: {
+    system: { type: String, default: 'etm' },
+    database: { type: String, default: '' },
+    collection: { type: String, default: '' },
+    id: { type: String, default: '' },
+    migratedAt: { type: Date, default: null }
   }
 }, { timestamps: true });
 
-module.exports = mongoose.model('EtmUnit', schema, COLLECTIONS.core.UNITS);
+module.exports = mongoose.model('EtmUnit', schema, COLLECTIONS.etm.UNITS);

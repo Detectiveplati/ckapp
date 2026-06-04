@@ -58,12 +58,16 @@ function getTemplogDbName() {
 
 const CORE_MONGODB_URI = getCoreMongoUri();
 const CORE_DB_NAME = getCoreDbName();
+const ETM_MONGODB_URI = process.env.ETM_MONGODB_URI || CORE_MONGODB_URI;
+const ETM_DB_NAME = process.env.ETM_DB_NAME || 'equipment_temperature_monitor';
 const TEMPLOG_MONGODB_URI = getTemplogMongoUri();
 const TEMPLOG_DB_NAME = getTemplogDbName();
 
 module.exports = {
   PORT: Number(process.env.PORT || 3000),
   JWT_SECRET: process.env.JWT_SECRET || '',
+  ETM_MONGODB_URI,
+  ETM_DB_NAME,
   CORE_MONGODB_URI,
   CORE_DB_NAME,
   TEMPLOG_MONGODB_URI,

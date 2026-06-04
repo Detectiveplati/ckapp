@@ -9,4 +9,4 @@ const schema = new mongoose.Schema({
   pushDelayWarningMinutes: { type: Number, default: 120 }
 }, { timestamps: true });
 
-module.exports = mongoose.model('EtmConfig', schema, COLLECTIONS.core.CONFIGS);
+module.exports = mongoose.model('EtmConfig', schema, COLLECTIONS.etm.CONFIGS);

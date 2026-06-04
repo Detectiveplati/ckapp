@@ -22,4 +22,4 @@ const schema = new mongoose.Schema({
 
 schema.index({ status: 1, unit: 1 });
 
-module.exports = mongoose.model('EtmAlert', schema, COLLECTIONS.core.ALERTS);
+module.exports = mongoose.model('EtmAlert', schema, COLLECTIONS.etm.ALERTS);

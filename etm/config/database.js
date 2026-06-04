@@ -5,6 +5,18 @@ const { MongoClient } = require('mongodb');
 const env = require('./env');
 
 const COLLECTIONS = {
+  etm: {
+    UNITS: 'etm_units',
+    DEVICES: 'etm_devices',
+    READINGS: 'etm_readings',
+    ALERTS: 'etm_alerts',
+    CORRECTIVE_ACTIONS: 'etm_corrective_actions',
+    CALIBRATIONS: 'etm_calibrations',
+    CONFIGS: 'etm_configs',
+    FOOD_SAFETY_MONTHLY_REPORTS: 'etm_food_safety_monthly_reports',
+    PUSH_SUBSCRIPTIONS: 'etm_push_subscriptions',
+    USERS: 'etm_users'
+  },
   core: {
     UNITS: 'core_tempmon_units',
     DEVICES: 'core_tempmon_devices',
@@ -31,13 +43,13 @@ let templogClient = null;
 let templogDb = null;
 
 async function connectDatabases() {
-  if (env.CORE_MONGODB_URI) {
-    await mongoose.connect(env.CORE_MONGODB_URI, {
-      dbName: env.CORE_DB_NAME
+  if (env.ETM_MONGODB_URI) {
+    await mongoose.connect(env.ETM_MONGODB_URI, {
+      dbName: env.ETM_DB_NAME
     });
-    console.log(`[ETM] Core MongoDB connected: ${env.CORE_DB_NAME}`);
+    console.log(`[ETM] ETM MongoDB connected: ${env.ETM_DB_NAME}`);
   } else {
-    console.warn('[ETM] Core MongoDB URI not set; core DB connection skipped.');
+    console.warn('[ETM] ETM MongoDB URI not set; ETM DB connection skipped.');
   }
 
   if (env.TEMPLOG_MONGODB_URI) {

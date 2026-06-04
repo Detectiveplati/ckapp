@@ -9,6 +9,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "seed:etm": "node scripts/seed-etm.js",
+    "migrate:units": "node scripts/migrate-units.js",
     "test:ingest": "node scripts/test-ingest.js"
   },
   "engines": {

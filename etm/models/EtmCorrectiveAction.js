@@ -18,4 +18,4 @@ const schema = new mongoose.Schema({
   outcome: { type: String, enum: ['product_safe', 'product_discarded', 'equipment_repaired', 'other', ''], default: '' }
 }, { timestamps: true });
 
-module.exports = mongoose.model('EtmCorrectiveAction', schema, COLLECTIONS.core.CORRECTIVE_ACTIONS);
+module.exports = mongoose.model('EtmCorrectiveAction', schema, COLLECTIONS.etm.CORRECTIVE_ACTIONS);

@@ -17,4 +17,4 @@ const schema = new mongoose.Schema({
   active: { type: Boolean, default: true }
 }, { timestamps: true });
 
-module.exports = mongoose.model('EtmDevice', schema, COLLECTIONS.core.DEVICES);
+module.exports = mongoose.model('EtmDevice', schema, COLLECTIONS.etm.DEVICES);

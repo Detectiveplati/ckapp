@@ -20,4 +20,4 @@ schema.index({ unit: 1, recordedAt: -1 });
 schema.index({ device: 1, recordedAt: -1 });
 schema.index({ device: 1, recordedAt: 1, value: 1 }, { unique: true });
 
-module.exports = mongoose.model('EtmReading', schema, COLLECTIONS.core.READINGS);
+module.exports = mongoose.model('EtmReading', schema, COLLECTIONS.etm.READINGS);

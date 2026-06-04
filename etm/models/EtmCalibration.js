@@ -17,4 +17,4 @@ const schema = new mongoose.Schema({
   notes: { type: String, default: '', trim: true }
 }, { timestamps: true });
 
-module.exports = mongoose.model('EtmCalibration', schema, COLLECTIONS.core.CALIBRATIONS);
+module.exports = mongoose.model('EtmCalibration', schema, COLLECTIONS.etm.CALIBRATIONS);

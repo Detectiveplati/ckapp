@@ -31,21 +31,21 @@ let templogClient = null;
 let templogDb = null;
 
 async function connectDatabases() {
-  if (env.MASTERAPP_CORE_MONGODB_URI) {
-    await mongoose.connect(env.MASTERAPP_CORE_MONGODB_URI, {
-      dbName: env.MASTERAPP_CORE_DB_NAME
+  if (env.CORE_MONGODB_URI) {
+    await mongoose.connect(env.CORE_MONGODB_URI, {
+      dbName: env.CORE_DB_NAME
     });
-    console.log(`[ETM] Core MongoDB connected: ${env.MASTERAPP_CORE_DB_NAME}`);
+    console.log(`[ETM] Core MongoDB connected: ${env.CORE_DB_NAME}`);
   } else {
-    console.warn('[ETM] MASTERAPP_CORE_MONGODB_URI not set; core DB connection skipped.');
+    console.warn('[ETM] Core MongoDB URI not set; core DB connection skipped.');
   }
 
-  if (env.MASTERAPP_TEMPLOG_MONGODB_URI) {
-    templogClient = await MongoClient.connect(env.MASTERAPP_TEMPLOG_MONGODB_URI);
-    templogDb = templogClient.db(env.MASTERAPP_TEMPLOG_DB_NAME);
-    console.log(`[ETM] TempLog MongoDB connected: ${env.MASTERAPP_TEMPLOG_DB_NAME}`);
+  if (env.TEMPLOG_MONGODB_URI) {
+    templogClient = await MongoClient.connect(env.TEMPLOG_MONGODB_URI);
+    templogDb = templogClient.db(env.TEMPLOG_DB_NAME);
+    console.log(`[ETM] TempLog MongoDB connected: ${env.TEMPLOG_DB_NAME}`);
   } else {
-    console.warn('[ETM] MASTERAPP_TEMPLOG_MONGODB_URI not set; templog DB connection skipped.');
+    console.warn('[ETM] TempLog MongoDB URI not set; templog DB connection skipped.');
   }
 }
 

@@ -5,7 +5,7 @@ const { COLLECTIONS } = require('../config/database');
 
 const schema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
-  type: { type: String, enum: ['freezer', 'chiller', 'warmer', 'ambient'], required: true },
+  type: { type: String, enum: ['freezer', 'chiller', 'warmer'], required: true },
   location: { type: String, default: '', trim: true },
   area: { type: String, default: '', trim: true },
   criticalMin: { type: Number, required: true },
@@ -16,6 +16,7 @@ const schema = new mongoose.Schema({
   inUse: { type: Boolean, default: true },
   inUseComment: { type: String, default: '', trim: true },
   notes: { type: String, default: '', trim: true },
+  thermometerProbeId: { type: String, default: '', trim: true },
   alertThresholdMinutes: { type: Number, default: 30 },
   warmerStateConfig: {
     roomTempCeiling: { type: Number, default: 35 },

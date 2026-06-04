@@ -2,11 +2,12 @@
 
 renderEtmShell('Setup');
 
+const LOCATION_OPTIONS = ['#06-19', '#06-27/15/16/17', '#06-24', '#05-27', '#05-26'];
+
 const TYPE_DEFAULTS = {
   freezer: { criticalMin: -25, criticalMax: -12, targetTemp: -18, warningBuffer: 2 },
   chiller: { criticalMin: 1, criticalMax: 8, targetTemp: 4, warningBuffer: 2 },
-  warmer: { criticalMin: 60, criticalMax: 90, targetTemp: 68, warningBuffer: 5 },
-  ambient: { criticalMin: 0, criticalMax: 35, targetTemp: 25, warningBuffer: 2 }
+  warmer: { criticalMin: 60, criticalMax: 90, targetTemp: 68, warningBuffer: 5 }
 };
 
 const WARMER_DEFAULTS = {
@@ -19,8 +20,20 @@ const WARMER_DEFAULTS = {
   fallMinPerMin: 0.08
 };
 
+const PROBE_PLACEHOLDERS = [
+  { value: '', label: 'No probe tagged yet' },
+  { value: 'probe-placeholder-1', label: 'Probe placeholder 1' },
+  { value: 'probe-placeholder-2', label: 'Probe placeholder 2' },
+  { value: 'probe-placeholder-3', label: 'Probe placeholder 3' }
+];
+
 let units = [];
 let editingId = null;
+
+function optionsHtml(options, includeBlankLabel = '') {
+  const blank = includeBlankLabel ? `<option value="">${includeBlankLabel}</option>` : '';
+  return blank + options.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+}
 
 document.getElementById('pageRoot').innerHTML = `
   <div class="tabs" role="tablist" aria-label="Setup sections">
@@ -54,19 +67,30 @@ document.getElementById('pageRoot').innerHTML = `
             <label for="type">Type</label>
             <select id="type" name="type" required>
               <option value="">Select type</option>
-              <option value="freezer">Freezer</option>
               <option value="chiller">Chiller</option>
+              <option value="freezer">Freezer</option>
               <option value="warmer">Warmer</option>
-              <option value="ambient">Ambient</option>
             </select>
           </div>
           <div class="form-field">
             <label for="location">Location</label>
-            <input id="location" name="location" autocomplete="off">
+            <select id="location" name="location">
+              ${optionsHtml(LOCATION_OPTIONS, 'Select location')}
+            </select>
           </div>
           <div class="form-field">
             <label for="area">Area</label>
             <input id="area" name="area" autocomplete="off">
+          </div>
+          <div class="form-field">
+            <label for="thermometerProbeId">Thermometer Probe</label>
+            <select id="thermometerProbeId" name="thermometerProbeId">
+              ${PROBE_PLACEHOLDERS.map((probe) => `<option value="${escapeHtml(probe.value)}">${escapeHtml(probe.label)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="alertThresholdMinutes">Alert Delay Minutes</label>
+            <input id="alertThresholdMinutes" name="alertThresholdMinutes" type="number" step="1" min="0" value="30">
           </div>
           <div class="form-field">
             <label for="criticalMin">Critical Minimum Temperature</label>
@@ -83,10 +107,6 @@ document.getElementById('pageRoot').innerHTML = `
           <div class="form-field">
             <label for="targetTemp">Target Temperature</label>
             <input id="targetTemp" name="targetTemp" type="number" step="0.1">
-          </div>
-          <div class="form-field">
-            <label for="alertThresholdMinutes">Alert Delay Minutes</label>
-            <input id="alertThresholdMinutes" name="alertThresholdMinutes" type="number" step="1" min="0" value="30">
           </div>
           <div class="form-field">
             <label class="check-row" for="inUse">
@@ -150,30 +170,35 @@ document.getElementById('pageRoot').innerHTML = `
       <div class="table-tools">
         <div>
           <h2>Equipment</h2>
-          <p class="muted">Inactive equipment is hidden unless enabled below.</p>
+          <p class="muted">Deactivated equipment is kept at the bottom and can be reactivated.</p>
         </div>
-        <label class="check-row" for="showInactive">
-          <input id="showInactive" type="checkbox">
-          Show inactive equipment
-        </label>
+      </div>
+      <div class="filter-row">
+        <div class="form-field">
+          <label for="locationFilter">Filter by Location</label>
+          <select id="locationFilter">
+            ${optionsHtml(LOCATION_OPTIONS, 'All locations')}
+          </select>
+        </div>
+      </div>
+      <div class="section-title-row">
+        <h3>Active Equipment</h3>
+        <span class="muted" id="activeCount"></span>
       </div>
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Location</th>
-              <th>Area</th>
-              <th>Critical Range</th>
-              <th>Target</th>
-              <th>Alert Delay</th>
-              <th>In Use</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="equipmentRows"></tbody>
+          <thead>${tableHeader()}</thead>
+          <tbody id="activeRows"></tbody>
+        </table>
+      </div>
+      <div class="section-title-row">
+        <h3>Deactivated Equipment</h3>
+        <span class="muted" id="inactiveCount"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>${tableHeader()}</thead>
+          <tbody id="inactiveRows"></tbody>
         </table>
       </div>
     </section>
@@ -187,7 +212,25 @@ document.getElementById('pageRoot').innerHTML = `
 
 const form = document.getElementById('equipmentForm');
 const notice = document.getElementById('notice');
-const showInactive = document.getElementById('showInactive');
+const locationFilter = document.getElementById('locationFilter');
+
+function tableHeader() {
+  return `
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Location</th>
+      <th>Area</th>
+      <th>Critical Range</th>
+      <th>Target</th>
+      <th>Probe</th>
+      <th>Alert Delay</th>
+      <th>In Use</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+  `;
+}
 
 function showNotice(message, type) {
   notice.hidden = false;
@@ -231,6 +274,7 @@ function handleTypeChange(applyDefaults = true) {
 function validatePayload(payload) {
   if (!payload.name) return 'Equipment name is required';
   if (!payload.type) return 'Type is required';
+  if (!TYPE_DEFAULTS[payload.type]) return 'Type must be chiller, freezer, or warmer';
   if (!Number.isFinite(payload.criticalMin)) return 'Critical minimum temperature is required';
   if (!Number.isFinite(payload.criticalMax)) return 'Critical maximum temperature is required';
   if (payload.criticalMin >= payload.criticalMax) return 'Critical minimum temperature must be lower than critical maximum temperature';
@@ -247,8 +291,9 @@ function buildPayload() {
   const payload = {
     name: document.getElementById('name').value.trim(),
     type,
-    location: document.getElementById('location').value.trim(),
+    location: document.getElementById('location').value,
     area: document.getElementById('area').value.trim(),
+    thermometerProbeId: document.getElementById('thermometerProbeId').value,
     criticalMin: numberValue('criticalMin'),
     criticalMax: numberValue('criticalMax'),
     warningBuffer: numberValue('warningBuffer'),
@@ -277,47 +322,72 @@ async function api(path, options = {}) {
   return data.data;
 }
 
+function selectedLocationUnits(source) {
+  const location = locationFilter.value;
+  return location ? source.filter((unit) => unit.location === location) : source;
+}
+
 function renderSummary() {
   const active = units.filter((unit) => unit.active !== false);
   const counts = {
     total: active.length,
     freezer: active.filter((unit) => unit.type === 'freezer').length,
     chiller: active.filter((unit) => unit.type === 'chiller').length,
-    warmer: active.filter((unit) => unit.type === 'warmer').length,
-    ambient: active.filter((unit) => unit.type === 'ambient').length
+    warmer: active.filter((unit) => unit.type === 'warmer').length
   };
   document.getElementById('summaryCards').innerHTML = [
     ['Total active equipment', counts.total],
     ['Freezers', counts.freezer],
     ['Chillers', counts.chiller],
-    ['Warmers', counts.warmer],
-    ['Ambient', counts.ambient]
+    ['Warmers', counts.warmer]
   ].map(([label, value]) => `<div class="summary-card"><span class="muted">${label}</span><span class="summary-value">${value}</span></div>`).join('');
 }
 
 function renderRows() {
-  const tbody = document.getElementById('equipmentRows');
-  if (!units.length) {
-    tbody.innerHTML = '<tr><td colspan="10" class="muted">No equipment found.</td></tr>';
-    return;
+  const active = selectedLocationUnits(units.filter((unit) => unit.active !== false));
+  const inactive = selectedLocationUnits(units.filter((unit) => unit.active === false));
+  document.getElementById('activeCount').textContent = `${active.length} shown`;
+  document.getElementById('inactiveCount').textContent = `${inactive.length} shown`;
+  document.getElementById('activeRows').innerHTML = rowsHtml(active, false);
+  document.getElementById('inactiveRows').innerHTML = rowsHtml(inactive, true);
+}
+
+function rowsHtml(rowUnits, inactive) {
+  if (!rowUnits.length) {
+    return `<tr><td colspan="11" class="muted">No ${inactive ? 'deactivated' : 'active'} equipment found.</td></tr>`;
   }
-  tbody.innerHTML = units.map((unit) => `
-    <tr>
+  return rowUnits.map((unit) => `
+    <tr class="${inactive ? 'inactive-row' : ''}">
       <td>${escapeHtml(unit.name)}</td>
-      <td>${escapeHtml(unit.type)}</td>
-      <td>${escapeHtml(unit.location || '')}</td>
+      <td>${typeLabel(unit.type)}</td>
+      <td>${escapeHtml(unit.location || '-')}</td>
       <td>${escapeHtml(unit.area || '')}</td>
       <td>${formatNumber(unit.criticalMin)} to ${formatNumber(unit.criticalMax)} C</td>
       <td>${formatNumber(unit.targetTemp)} C</td>
+      <td>${escapeHtml(probeLabel(unit.thermometerProbeId))}</td>
       <td>${formatNumber(unit.alertThresholdMinutes)} min</td>
       <td><span class="badge ${unit.inUse === false ? 'warn' : 'ok'}">${unit.inUse === false ? 'No' : 'Yes'}</span></td>
       <td><span class="badge ${unit.active === false ? 'off' : 'ok'}">${unit.active === false ? 'Inactive' : 'Active'}</span></td>
       <td>
         <button class="btn" type="button" data-action="edit" data-id="${unit._id}">Edit</button>
-        <button class="btn danger" type="button" data-action="deactivate" data-id="${unit._id}" ${unit.active === false ? 'disabled' : ''}>Deactivate</button>
+        ${inactive
+          ? `<button class="btn success" type="button" data-action="reactivate" data-id="${unit._id}">Reactivate</button>`
+          : `<button class="btn danger" type="button" data-action="deactivate" data-id="${unit._id}">Deactivate</button>`}
       </td>
     </tr>
   `).join('');
+}
+
+function typeLabel(value) {
+  return value === 'chiller' ? 'Chiller'
+    : value === 'freezer' ? 'Freezer'
+    : value === 'warmer' ? 'Warmer'
+    : escapeHtml(value || '-');
+}
+
+function probeLabel(value) {
+  const probe = PROBE_PLACEHOLDERS.find((item) => item.value === value);
+  return probe ? probe.label : (value || 'No probe tagged yet');
 }
 
 function formatNumber(value) {
@@ -334,10 +404,10 @@ function escapeHtml(value) {
   }[char]));
 }
 
-async function loadUnits() {
+async function loadUnits(options = {}) {
   try {
-    clearNotice();
-    units = await api(`/units?includeInactive=${showInactive.checked}`);
+    if (options.clearNotice !== false) clearNotice();
+    units = await api('/units?includeInactive=true');
     renderSummary();
     renderRows();
   } catch (err) {
@@ -366,9 +436,10 @@ async function editUnit(id) {
     document.getElementById('formTitle').textContent = 'Edit Equipment';
     document.getElementById('cancelEditBtn').hidden = false;
     document.getElementById('name').value = unit.name || '';
-    document.getElementById('type').value = unit.type || '';
-    document.getElementById('location').value = unit.location || '';
+    document.getElementById('type').value = TYPE_DEFAULTS[unit.type] ? unit.type : '';
+    document.getElementById('location').value = LOCATION_OPTIONS.includes(unit.location) ? unit.location : '';
     document.getElementById('area').value = unit.area || '';
+    document.getElementById('thermometerProbeId').value = unit.thermometerProbeId || '';
     setNumber('criticalMin', unit.criticalMin);
     setNumber('criticalMax', unit.criticalMax);
     setNumber('warningBuffer', unit.warningBuffer);
@@ -390,8 +461,20 @@ async function deactivateUnit(id) {
   if (!window.confirm(`Deactivate ${unit?.name || 'this equipment'}?`)) return;
   try {
     await api('/units/' + encodeURIComponent(id), { method: 'DELETE' });
+    await loadUnits({ clearNotice: false });
     showNotice('Equipment deactivated.', 'ok');
-    await loadUnits();
+  } catch (err) {
+    showNotice(err.message, 'error');
+  }
+}
+
+async function reactivateUnit(id) {
+  const unit = units.find((item) => item._id === id);
+  if (!window.confirm(`Reactivate ${unit?.name || 'this equipment'}?`)) return;
+  try {
+    await api('/units/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify({ active: true }) });
+    await loadUnits({ clearNotice: false });
+    showNotice('Equipment reactivated.', 'ok');
   } catch (err) {
     showNotice(err.message, 'error');
   }
@@ -410,7 +493,7 @@ document.querySelectorAll('.tab-btn').forEach((button) => {
 document.getElementById('type').addEventListener('change', () => handleTypeChange(true));
 document.getElementById('clearBtn').addEventListener('click', resetForm);
 document.getElementById('cancelEditBtn').addEventListener('click', resetForm);
-showInactive.addEventListener('change', loadUnits);
+locationFilter.addEventListener('change', renderRows);
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -429,18 +512,19 @@ form.addEventListener('submit', async (event) => {
       await api('/units', { method: 'POST', body: JSON.stringify(payload) });
     }
     resetForm({ clearNotice: false });
-    await loadUnits();
+    await loadUnits({ clearNotice: false });
     showNotice(wasEditing ? 'Equipment updated.' : 'Equipment created.', 'ok');
   } catch (err) {
     showNotice(err.message, 'error');
   }
 });
 
-document.getElementById('equipmentRows').addEventListener('click', (event) => {
+document.getElementById('tab-equipment').addEventListener('click', (event) => {
   const button = event.target.closest('button[data-action]');
   if (!button) return;
   if (button.dataset.action === 'edit') editUnit(button.dataset.id);
   if (button.dataset.action === 'deactivate') deactivateUnit(button.dataset.id);
+  if (button.dataset.action === 'reactivate') reactivateUnit(button.dataset.id);
 });
 
 // TODO: Link equipment to probes.

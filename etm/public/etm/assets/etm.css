@@ -207,6 +207,12 @@ body {
   color: var(--danger);
 }
 
+.btn.success {
+  background: #ecfdf3;
+  border-color: #abefc6;
+  color: var(--success);
+}
+
 .btn[hidden],
 [hidden] {
   display: none !important;
@@ -237,6 +243,34 @@ body {
   gap: 12px;
   align-items: center;
   margin-bottom: 12px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 14px;
+}
+
+.filter-row .form-field {
+  min-width: 240px;
+}
+
+.section-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin: 18px 0 8px;
+}
+
+.section-title-row h3 {
+  margin: 0;
+}
+
+.inactive-row {
+  background: #f9fafb;
 }
 
 .table-wrap {

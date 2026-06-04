@@ -25,17 +25,26 @@ function cleanNumber(value, fallback = null) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function inferLocation(name) {
+  const value = String(name || '');
+  if (value.includes('06-19')) return '#06-19';
+  if (value.includes('06-24')) return '#06-24';
+  if (value.includes('05-27')) return '#05-27';
+  if (value.includes('05-26')) return '#05-26';
+  return '#06-27/15/16/17';
+}
+
 function normalizeUnit(sourceUnit, migratedAt) {
-  const type = ['freezer', 'chiller', 'warmer', 'ambient'].includes(sourceUnit.type)
+  const type = ['freezer', 'chiller', 'warmer'].includes(sourceUnit.type)
     ? sourceUnit.type
-    : 'ambient';
+    : 'chiller';
   const warmerStateConfig = { ...WARMER_DEFAULTS, ...(sourceUnit.warmerStateConfig || {}) };
 
   return {
     _id: sourceUnit._id,
     name: cleanString(sourceUnit.name),
     type,
-    location: cleanString(sourceUnit.location),
+    location: cleanString(sourceUnit.location) || inferLocation(sourceUnit.name),
     area: cleanString(sourceUnit.area),
     criticalMin: cleanNumber(sourceUnit.criticalMin, 0),
     criticalMax: cleanNumber(sourceUnit.criticalMax, 35),
